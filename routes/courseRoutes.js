@@ -7,4 +7,6 @@ router
   .get(courseController.getAllCourses)
   .post(courseController.createCourse)
 
+router.route('/:id').get(courseController.getCourseById)
+
 module.exports = router

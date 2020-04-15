@@ -14,7 +14,7 @@ exports.getAllCourses = async (req, res) => {
   } catch (error) {
     res.status(404).json({
       status: 'failed',
-      message: error,
+      message: `An error occurred! ${error}`,
     })
   }
 }
@@ -31,6 +31,24 @@ exports.createCourse = async (req, res) => {
     })
   } catch (error) {
     res.status(400).json({
+      status: 'failed',
+      message: `An error occurred! ${error}`,
+    })
+  }
+}
+
+exports.getCourseById = async (req, res) => {
+  try {
+    const { id } = req.params
+    const course = await Course.findById(id)
+    res.status(200).json({
+      status: 'success',
+      data: {
+        course,
+      },
+    })
+  } catch (error) {
+    res.status(404).json({
       status: 'failed',
       message: `An error occurred! ${error}`,
     })
