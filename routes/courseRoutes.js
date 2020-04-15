@@ -16,6 +16,7 @@ router
   .get(
     courseController.addCacheKey(null), //cacheKey == null (id will be used as default)
     courseController.checkCache,
+    // courseController.searchCache,
     courseController.getCourseById
   )
   .patch(courseController.updateCourse)

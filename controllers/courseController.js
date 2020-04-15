@@ -3,7 +3,17 @@ const Course = require('../models/Course')
 const redis = require('redis')
 const redis_client = redis.createClient(process.env.PORT_REDIS)
 
-//configurable custom express middleware which returns a middleware function
+/*************************** CACHE HANDLING MIDDLEWARES ***********************/
+
+const updateCache = (key) => {
+  redis_client.del(key, (err) => {
+    if (!err) {
+      console.log('cache updated!')
+    }
+  })
+}
+
+// configurable custom express middleware which returns a middleware function
 exports.addCacheKey = function (key) {
   return function (req, res, next) {
     res.locals.cacheKey = key //set given key as cacheKey
@@ -26,7 +36,7 @@ exports.checkCache = (req, res, next) => {
     //if data exists in cache fetch it and return as response
     if (cachedData !== null) {
       res.status(200).json({
-        status: 'success',
+        status: 'success from cache',
         data: JSON.parse(cachedData),
       })
     }
@@ -36,6 +46,10 @@ exports.checkCache = (req, res, next) => {
     }
   })
 }
+
+/*************************** CACHE HANDLING MIDDLEWARES ***********************/
+
+/*********************CRUD OPERATIONS ENDPOINTS CONTROLLERS ******************/
 
 //retrieve all courses from the database
 exports.getAllCourses = async (req, res) => {
@@ -51,24 +65,6 @@ exports.getAllCourses = async (req, res) => {
     })
   } catch (error) {
     res.status(404).json({
-      status: 'failed',
-      message: `An error occurred! ${error}`,
-    })
-  }
-}
-
-exports.createCourse = async (req, res) => {
-  try {
-    //create the new course from the body of the request
-    const newCourse = await Course.create(req.body)
-    res.status(201).json({
-      status: 'success',
-      data: {
-        newCourse,
-      },
-    })
-  } catch (error) {
-    res.status(400).json({
       status: 'failed',
       message: `An error occurred! ${error}`,
     })
@@ -96,6 +92,28 @@ exports.getCourseById = async (req, res) => {
   }
 }
 
+exports.createCourse = async (req, res) => {
+  try {
+    //create the new course from the body of the request
+    const newCourse = await Course.create(req.body)
+    if (newCourse) {
+      updateCache('allCourses')
+    }
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        newCourse,
+      },
+    })
+  } catch (error) {
+    res.status(400).json({
+      status: 'failed',
+      message: `An error occurred! ${error}`,
+    })
+  }
+}
+
 //search and update the course whose id is given as req parameter and the new details as req body
 exports.updateCourse = async (req, res) => {
   try {
@@ -103,6 +121,12 @@ exports.updateCourse = async (req, res) => {
       new: true, //return the updated course
       runValidators: true, //run all the validators defined for the Course Schema
     })
+
+    if (course) {
+      updateCache(req.params.id)
+      updateCache('allCourses')
+    }
+
     res.status(200).json({
       status: 'success',
       data: {
@@ -121,6 +145,8 @@ exports.updateCourse = async (req, res) => {
 exports.deleteCourse = async (req, res) => {
   try {
     await Course.findByIdAndDelete(req.params.id)
+    updateCache('allCourses')
+    updateCache(req.params.id)
     res.status(204).json({
       status: 'success',
       data: null, //do not return any data
@@ -132,3 +158,5 @@ exports.deleteCourse = async (req, res) => {
     })
   }
 }
+
+/*********************END OF CRUD OPERATIONS ENDPOINTS CONTROLLERS ******************/
