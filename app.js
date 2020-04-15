@@ -4,6 +4,7 @@ const morgan = require('morgan')
 const courseRouter = require('./routes/courseRoutes')
 const app = express()
 
+//enable logging only in the development environment
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'))
 }
