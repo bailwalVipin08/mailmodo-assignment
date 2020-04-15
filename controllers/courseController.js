@@ -1,10 +1,48 @@
 //import the Course schema
 const Course = require('../models/Course')
+const redis = require('redis')
+const redis_client = redis.createClient(process.env.PORT_REDIS)
+
+//configurable custom express middleware which returns a middleware function
+exports.addCacheKey = function (key) {
+  return function (req, res, next) {
+    res.locals.cacheKey = key //set given key as cacheKey
+    next() //go to the next middleware i.e., checkCache which will use this cacheKey to check for cache
+  }
+}
+
+exports.checkCache = (req, res, next) => {
+  //key is used to identify the data stored in redis-cache
+  let key = res.locals.cacheKey === null ? req.params.id : res.locals.cacheKey
+
+  //retrieve data from redis-cache
+  redis_client.get(key, (error, cachedData) => {
+    if (error) {
+      res.status(500).json({
+        status: 'failed',
+        message: error,
+      })
+    }
+    //if data exists in cache fetch it and return as response
+    if (cachedData !== null) {
+      res.status(200).json({
+        status: 'success',
+        data: JSON.parse(cachedData),
+      })
+    }
+    //if data does not exists fallback to database and request data from database
+    else {
+      next() //move to the next middleware in the stack/chain
+    }
+  })
+}
 
 //retrieve all courses from the database
 exports.getAllCourses = async (req, res) => {
   try {
     const courses = await Course.find() //perform a find operation on the database
+    //save the data to cache for future (3000 TTL)
+    redis_client.setex('allCourses', 3000, JSON.stringify(courses))
     res.status(200).json({
       status: 'success',
       data: {
@@ -42,6 +80,8 @@ exports.getCourseById = async (req, res) => {
   try {
     const { id } = req.params //destructure id from request parameters
     const course = await Course.findById(id) //search for the course with the id provided
+    redis_client.setex(id, 3000, JSON.stringify(course)) //save the course in cache (3000 TTL) with id as the key
+
     res.status(200).json({
       status: 'success',
       data: {
